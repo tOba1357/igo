@@ -1,0 +1,6 @@
+[package]
+name = "igo"
+version = "0.1.0"
+authors = ["Tatsuya Oba"]
+
+[dependencies]
