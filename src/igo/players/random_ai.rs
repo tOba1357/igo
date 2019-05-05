@@ -27,7 +27,7 @@ impl Player for RandomAI {
         let mut puttables = Vec::with_capacity(size);
         for x in 0..size {
             for y in 0..size {
-                if board.borrow_mut().is_put(&x, &y) {
+                if board.borrow_mut().is_put(&x, &y, &turn.to_cell()) {
                     puttables.push((x, y));
                 }
             }
