@@ -68,6 +68,7 @@ impl Game {
         let mut passed = false;
         let mut put_failed_count = 0;
         loop {
+            println!("{:?}", self.board.borrow());
             let player = match self.turn {
                 Turn::Black => self.black_player.clone(),
                 Turn::White => self.white_player.clone(),

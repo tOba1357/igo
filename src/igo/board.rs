@@ -43,16 +43,59 @@ impl Board {
     }
 
     pub fn put(&mut self, x: &usize, y: &usize, color: Cell) -> bool {
-        if !self.is_put(x, y, &color) {
-            return false;
-        }
         match color {
             Cell::White | Cell::Black => (),
             _ => return false
         }
-        self.cells[*x][*y] = color;
+        if !self.is_put(x, y, &color) {
+            return false;
+        }
+        self.remove_kou();
+        self.cells[*x][*y] = color.clone();
+
+        let mut queue = Vec::with_capacity(self.size);
+        let mut i = 0;
+        let mut rem = vec![vec![false; self.size]; self.size];
+        let mut removeable = true;
+        BoardDirectionIter::new(*x, *y, self).for_each(|(x, y)| {
+            let cell = &self.cells[x][y];
+            if *cell == color.to_enemy_cell() {
+                queue.push((x, y));
+            }
+        });
+        rem[*x][*y] = true;
+        loop {
+            if queue.len() <= i { break; }
+            let x = queue[i].0;
+            let y = queue[i].1;
+            BoardDirectionIter::new(x, y, self).for_each(|(x, y)| {
+                let cell = &self.cells[x][y];
+                if *cell == color {
+                    return;
+                } else if *cell == color.to_enemy_cell() {
+                    if !rem[x][y] {
+                        queue.push((x, y));
+                    }
+                } else {
+                    removeable = false;
+                }
+            });
+            if !removeable { break }
+            i += 1;
+        }
+
+        if removeable {
+            queue.iter().for_each(|&(x, y)| {
+                if queue.len() == 1 {
+                    self.cells[x][y] = Cell::Kou;
+                } else {
+                    self.cells[x][y] = Cell::None;
+                }
+            });
+        }
         true
     }
+
 
     pub fn is_put(&self, x: &usize, y: &usize, color: &Cell) -> bool {
         if self.size <= *x || self.size <= *y {
@@ -62,24 +105,25 @@ impl Board {
             Cell::None => (),
             _ => return false
         }
+        // FIXME: 取れる場合は以下の条件に当てはまっても置くことができる
         let mut queue = Vec::with_capacity(self.size);
         let mut i = 0;
-        let mut rem = vec![false; self.size * self.size];
-        queue.push((x, y));
-        rem[self.tow_dir_to_one_dir(x, y)] = true;
+        let mut rem = vec![vec![false; self.size]; self.size];
+        queue.push((*x, *y));
+        rem[*x][*y] = true;
         loop {
             if queue.len() <= i { break; }
             let mut ok = false;
             let x = queue[i].0;
             let y = queue[i].1;
-            BoardDirectionIter::new(*x, *y, self).for_each(|(x, y)| {
+            BoardDirectionIter::new(x, y, self).for_each(|(x, y)| {
                 let cell = &self.cells[x][y];
                 if *cell == *color {
-//                    TODO
-
+                    if !rem[x][y] {
+                        queue.push((x, y));
+                    }
                 } else if *cell == color.to_enemy_cell() {
-//                    TODO
-
+                    return;
                 } else {
                     ok = true;
                 }
@@ -87,12 +131,10 @@ impl Board {
             if ok { return true }
             i += 1;
         }
-        true
+        false
     }
 
-    fn tow_dir_to_one_dir(&self, x: &usize, y: &usize) -> usize { x + y * self.size }
-
-    pub fn pass(&mut self) {
+    fn remove_kou(&mut self) {
         for i in 0..self.size {
             for j in 0..self.size {
                 match self.cells[i][j] {
@@ -101,6 +143,10 @@ impl Board {
                 }
             }
         }
+    }
+
+    pub fn pass(&mut self) {
+        self.remove_kou();
     }
 }
 
@@ -134,7 +180,7 @@ impl Iterator for BoardDirectionIter {
     type Item = (usize, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.direction_iter.len() < self.i {
+        if self.direction_iter.len() > self.i {
             let r = Some(self.direction_iter[self.i]);
             self.i += 1;
             r
