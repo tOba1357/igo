@@ -71,7 +71,6 @@ impl Game {
         let mut put_failed_count = 0;
         loop {
             println!("{:?}", self.board.borrow());
-            if n >= 120 { break }
             let player = match self.turn {
                 Turn::Black => self.black_player.clone(),
                 Turn::White => self.white_player.clone(),
@@ -82,6 +81,7 @@ impl Game {
                 Some(point) => println!("{}: {:?} {}, {}", n, self.turn, point.0,  point.1),
             }
             if let Some((x, y)) = point {
+                passed = false;
                 if self.board.borrow_mut().put(&x, &y, self.turn.to_cell()) {
                     put_failed_count = 0;
                 } else {
