@@ -7,7 +7,7 @@ use core::borrow::Borrow;
 pub struct Board {
     pub size: usize,
     pub cells: Vec<Vec<Cell>>,
-    pub poss: Vec<(usize, usize, Cell)>,
+    pub points: Vec<(usize, usize, Cell)>,
 }
 
 #[derive(PartialEq, Clone)]
@@ -40,7 +40,7 @@ impl Board {
         Board {
             size,
             cells,
-            poss: vec![],
+            points: vec![],
         }
     }
 
@@ -49,12 +49,12 @@ impl Board {
             Cell::White | Cell::Black => (),
             _ => return false
         }
-        let removeable_pos = self.calc_removeable_pos(x, y, &color);
+        let removeable_points = self.calc_removeable_points(x, y, &color);
         let mut is_kou = false;
-        removeable_pos.iter().for_each(|&(x, y)| {
-            if removeable_pos.len() == 1 {
-                let pos = &self.poss[0];
-                if pos.0 == x && pos.1 == y {
+        removeable_points.iter().for_each(|&(x, y)| {
+            if removeable_points.len() == 1 {
+                let point = &self.points[0];
+                if point.0 == x && point.1 == y {
                     is_kou = true;
                     return;
                 }
@@ -62,16 +62,16 @@ impl Board {
             self.cells[x][y] = Cell::None;
         });
         if is_kou { return false; }
-        if removeable_pos.len() == 0 && !self.is_put(x, y, &color) {
+        if removeable_points.len() == 0 && !self.is_put(x, y, &color) {
             return false;
         }
         self.cells[*x][*y] = color.clone();
-        self.poss.push((*x, *y, color));
+        self.points.push((*x, *y, color));
         true
     }
 
 
-    pub fn calc_removeable_pos(&self, put_x: &usize, put_y: &usize, color: &Cell) -> Vec<(usize, usize)> {
+    pub fn calc_removeable_points(&self, put_x: &usize, put_y: &usize, color: &Cell) -> Vec<(usize, usize)> {
         BoardDirectionIter::new(*put_x, *put_y, self).flat_map(|(x, y)| {
             let mut queue = Vec::with_capacity(self.size);
             let mut i = 0;
@@ -120,15 +120,15 @@ impl Board {
             Cell::None => (),
             _ => return false
         }
-        let remove_poss = self.calc_removeable_pos(x, y, color);
+        let remove_points = self.calc_removeable_points(x, y, color);
         // check kou
-        if remove_poss.len() == 1 {
-            let pos = remove_poss[0];
-            if pos.0 == *x && pos.1 == *y {
+        if remove_points.len() == 1 {
+            let point = remove_points[0];
+            if point.0 == *x && point.1 == *y {
                 return false;
             }
         }
-        if remove_poss.len() > 0 { return true; }
+        if remove_points.len() > 0 { return true; }
         let mut queue = Vec::with_capacity(self.size);
         let mut i = 0;
         let mut rem = vec![vec![false; self.size]; self.size];

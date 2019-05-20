@@ -76,12 +76,12 @@ impl Game {
                 Turn::Black => self.black_player.clone(),
                 Turn::White => self.white_player.clone(),
             };
-            let pos = player.borrow_mut().put(self.board.clone(), &self.turn);
-            match pos {
+            let point = player.borrow_mut().put(self.board.clone(), &self.turn);
+            match point {
                 None => println!("{}: {:?} None", n, self.turn),
-                Some(pos) => println!("{}: {:?} {}, {}", n, self.turn, pos.0,  pos.1),
+                Some(point) => println!("{}: {:?} {}, {}", n, self.turn, point.0,  point.1),
             }
-            if let Some((x, y)) = pos {
+            if let Some((x, y)) = point {
                 if self.board.borrow_mut().put(&x, &y, self.turn.to_cell()) {
                     put_failed_count = 0;
                 } else {
