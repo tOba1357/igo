@@ -11,6 +11,7 @@ pub struct Game {
     white_player: Rc<RefCell<Player>>,
 }
 
+#[derive(Debug)]
 pub enum Turn {
     Black,
     White,
@@ -26,8 +27,8 @@ impl Turn {
 
     pub fn to_cell(&self) -> Cell {
         match self {
-            Turn::Black => Cell::White,
-            Turn::White => Cell::Black,
+            Turn::Black => Cell::Black,
+            Turn::White => Cell::White,
         }
     }
 }
@@ -65,15 +66,22 @@ impl Game {
     }
 
     pub fn start(&mut self) -> Winner {
+        let mut n = 0;
         let mut passed = false;
         let mut put_failed_count = 0;
         loop {
+            println!("{:?}", self.board.borrow());
+            if n >= 120 { break }
             let player = match self.turn {
                 Turn::Black => self.black_player.clone(),
                 Turn::White => self.white_player.clone(),
             };
-            let pos = player.borrow_mut().put(self.board.clone(), &self.turn);
-            if let Some((x, y)) = pos {
+            let point = player.borrow_mut().put(self.board.clone(), &self.turn);
+            match point {
+                None => println!("{}: {:?} None", n, self.turn),
+                Some(point) => println!("{}: {:?} {}, {}", n, self.turn, point.0,  point.1),
+            }
+            if let Some((x, y)) = point {
                 if self.board.borrow_mut().put(&x, &y, self.turn.to_cell()) {
                     put_failed_count = 0;
                 } else {
@@ -92,6 +100,7 @@ impl Game {
                 }
             }
             self.turn = self.turn.get_next_turn();
+            n += 1;
         }
         Winner::None
     }
