@@ -2,6 +2,7 @@ use std::fmt;
 use std::collections::HashSet;
 use std::rc::Rc;
 use core::borrow::Borrow;
+use igo::game::Winner;
 
 #[derive(Clone)]
 pub struct Board {
@@ -167,8 +168,7 @@ impl Board {
         false
     }
 
-    pub fn pass(&mut self) {
-    }
+    pub fn pass(&mut self) {}
 
     #[cfg(test)]
     pub fn set_from_str(&mut self, s: String) {
@@ -183,12 +183,65 @@ impl Board {
             }
         })
     }
+
+    pub fn calc_winner(&self) -> Winner {
+        let mut rem = vec![vec![false; self.size]; self.size];
+        rem[0][0] = true;
+        let mut queue = Vec::with_capacity(self.size);
+        let mut next_pos = None;
+        queue.push((0, 0));
+        let mut i = 0;
+        let mut black_count = 0;
+        let mut white_count = 0;
+        let mut current_cell = if self.cells[0][0] == Cell::None {
+            self.cells[0][1].clone()
+        } else {
+            self.cells[0][0].clone()
+        };
+        loop {
+            if queue.len() <= i {
+                if next_pos.is_none() { break; }
+                {
+                    let next_pos = next_pos.unwrap();
+                    queue.clear();
+                    queue.push(next_pos);
+                    rem[next_pos.0][next_pos.1] = true;
+                }
+                i = 0;
+                next_pos = None;
+                current_cell = current_cell.to_enemy_cell();
+                continue;
+            }
+            let (x, y) = queue[i];
+            BoardDirectionIter::new(x, y, self).for_each(|(x, y)| {
+                if rem[x][y] { return; }
+                let cell = &self.cells[x][y];
+                if *cell == current_cell || *cell == Cell::None {
+                    rem[x][y] = true;
+                    match current_cell {
+                        Cell::Black => black_count += 1,
+                        Cell::White => white_count += 1,
+                        _ => { panic!("") }
+                    }
+                    queue.push((x, y));
+                } else {
+                    next_pos = Some((x, y));
+                }
+            });
+            i += 1;
+        }
+        println!("{}, {}", black_count, white_count);
+        if black_count == white_count {
+            Winner::None
+        } else if black_count > white_count {
+            Winner::Black
+        } else {
+            Winner::White
+        }
+    }
 }
 
 pub struct BoardDirectionIter {
-    x: usize,
-    y: usize,
-    board: Board,
     direction_iter: Vec<(usize, usize)>,
     i: usize,
 }
@@ -200,11 +253,7 @@ impl BoardDirectionIter {
         if x < board.size - 1 { direction_iter.push((x + 1, y)) }
         if y > 0 { direction_iter.push((x, y - 1)) }
         if y < board.size - 1 { direction_iter.push((x, y + 1)) }
-//        TODO: doing clone maybe late
         BoardDirectionIter {
-            x,
-            y,
-            board: (*board).clone(),
             direction_iter,
             i: 0,
         }

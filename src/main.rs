@@ -12,7 +12,5 @@ fn main() {
     let mut white_player = Rc::new(RefCell::new(RandomAI::new()));
     let mut game = Game::new(black_player, white_player);
     let winner = game.start();
-    println!("{:?}", game.board.borrow());
     println!("{:?}", winner);
-
 }
