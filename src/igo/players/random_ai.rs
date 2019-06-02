@@ -43,16 +43,21 @@ pub fn is_live(board: &Board, x: &usize, y: &usize, turn: &Turn) -> bool {
     rem[*x][*y] = true;
     let cell = turn.to_cell();
     let mut ok = false;
+    let mut all = true;
     BoardDirectionIter::new(*x, *y, &board).for_each(|(x, y)| {
         if board.cells[x][y] == cell {
             queue.push((x, y));
         } else if board.cells[x][y] == Cell::None {
             count += 1;
+            all = false;
+        } else {
+            all = false;
         }
         rem[x][y] = true;
     });
+    if all { return false; }
     loop {
-        if count >= 2 { return true }
+        if count >= 2 { return true; }
         if queue.len() <= i { break; }
         let x = queue[i].0;
         let y = queue[i].1;
@@ -61,7 +66,7 @@ pub fn is_live(board: &Board, x: &usize, y: &usize, turn: &Turn) -> bool {
             if board.cells[x][y] == cell {
                 queue.push((x, y));
             } else if board.cells[x][y] == Cell::None {
-                count+= 1;
+                count += 1;
             }
             rem[x][y] = true;
         });

@@ -102,6 +102,6 @@ impl Game {
             self.turn = self.turn.get_next_turn();
             n += 1;
         }
-        Winner::None
+        self.board.borrow().calc_winner()
     }
 }
