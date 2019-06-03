@@ -8,7 +8,20 @@ use igo::game::Winner;
 pub struct Board {
     pub size: usize,
     pub cells: Vec<Vec<Cell>>,
-    pub points: Vec<(usize, usize, Cell)>,
+    pub points: Vec<Option<(usize, usize, Cell)>>,
+}
+
+impl PartialEq for Board {
+    fn eq(&self, other: &Self) -> bool {
+        for i in 0..self.size {
+            for j in 0..self.size {
+                if self.cells[i][j] != other.cells[i][j] {
+                    return false
+                }
+            }
+        }
+        true
+    }
 }
 
 #[derive(PartialEq, Clone)]
@@ -54,10 +67,15 @@ impl Board {
         let mut is_kou = false;
         removeable_points.iter().for_each(|&(x, y)| {
             if removeable_points.len() == 1 {
-                let point = &self.points[0];
-                if point.0 == x && point.1 == y {
-                    is_kou = true;
-                    return;
+                let point = &self.points.last().clone().unwrap().clone();
+                match point {
+                    None => {return},
+                    Some(point) => {
+                        if point.0 == x && point.1 == y {
+                            is_kou = true;
+                            return;
+                        }
+                    },
                 }
             }
             self.cells[x][y] = Cell::None;
@@ -67,7 +85,7 @@ impl Board {
             return false;
         }
         self.cells[*x][*y] = color.clone();
-        self.points.push((*x, *y, color));
+        self.points.push(Some((*x, *y, color)));
         true
     }
 
@@ -168,7 +186,7 @@ impl Board {
         false
     }
 
-    pub fn pass(&mut self) {}
+    pub fn pass(&mut self) { self.points.push(None) }
 
     #[cfg(test)]
     pub fn set_from_str(&mut self, s: String) {
