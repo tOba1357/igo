@@ -8,6 +8,7 @@ use igo::board::{Board, Cell, BoardDirectionIter};
 use igo::game::{Turn, Winner};
 use igo::players::Player;
 use std::cmp::Ordering;
+use rand::distributions::{Beta, Distribution};
 
 pub struct MonteCarloAi {
     rng: ThreadRng,
@@ -47,7 +48,11 @@ impl Node {
 
     fn max_node(&self) -> Option<&Rc<RefCell<Node>>> {
         if let Some(ref nodes) = self.nodes {
-            nodes.iter().max_by(|node1, node2| if node1.borrow().utc > node2.borrow().utc { Ordering::Greater } else { Ordering::Less }).clone()
+            nodes.iter()
+                .map(|node| (node, Beta::new((self.win_count + 1) as f64, (self.simulate_num - self.win_count + 1) as f64).sample(&mut rand::thread_rng())))
+                .max_by(|(_, v1), (_, v2)| if v1 > v2 { Ordering::Greater } else { Ordering::Less })
+                .map(|(node, _)| node)
+                .clone()
         } else {
             None
         }
@@ -94,7 +99,7 @@ pub fn calc_puttables(board: &Board, turn: &Turn) -> Vec<(usize, usize)> {
     let mut puttables = Vec::with_capacity(size);
     for x in 0..size {
         for y in 0..size {
-            if board.is_put(&x, &y, &turn.to_cell()) {
+            if board.is_put(&x, &y, &turn.to_cell()).0 {
                 puttables.push((x, y));
             }
         }
@@ -103,58 +108,56 @@ pub fn calc_puttables(board: &Board, turn: &Turn) -> Vec<(usize, usize)> {
 }
 
 pub fn is_live(board: &Board, x: &usize, y: &usize, turn: &Turn) -> bool {
-    let mut board = board.clone();
-    board.put(x, y, turn.to_cell());
-    let mut rem = vec![vec![false; board.size]; board.size];
-    let mut queue = Vec::with_capacity(board.size * board.size);
-    let mut i = 0;
-    let mut count = 0;
-    rem[*x][*y] = true;
     let cell = turn.to_cell();
-    let mut ok = false;
-    let mut all = true;
-    BoardDirectionIter::new(*x, *y, &board).for_each(|(x, y)| {
-        if board.cells[x][y] == cell {
-            queue.push((x, y));
-        } else if board.cells[x][y] == Cell::None {
-            count += 1;
-            all = false;
-        } else {
-            all = false;
-        }
-        rem[x][y] = true;
-    });
-    if all { return false; }
-    loop {
-        if count >= 2 { return true; }
-        if queue.len() <= i { break; }
-        let x = queue[i].0;
-        let y = queue[i].1;
-        BoardDirectionIter::new(x, y, &board).for_each(|(x, y)| {
-            if rem[x][y] { return; }
-            if board.cells[x][y] == cell {
-                queue.push((x, y));
-            } else if board.cells[x][y] == Cell::None {
-                count += 1;
+    let is_surround = BoardDirectionIter::new(*x, *y, &board).all(|(x, y)| { board.cells[x][y] == cell });
+    if is_surround {
+        let enemy_cell = turn.get_next_turn().to_cell();
+        if (*x == 0 || *y == 0) || board.cells[x - 1][y - 1] == enemy_cell {
+            if *y == 0 || *x >= board.size - 1 || board.cells[x + 1][y - 1] == enemy_cell {
+                if *y <= 1 || board.cells[*x][y - 2] == enemy_cell {
+                    return true
+                }
             }
-            rem[x][y] = true;
-        });
-        i += 1;
+            if *x == 0 || *y >= board.size - 1 || board.cells[x - 1][y + 1] == enemy_cell {
+                if *x <= 1 || board.cells[x - 2][*y] == enemy_cell {
+                    return true
+                }
+            }
+        }
+        if (*x >= board.size - 1 || *y >= board.size - 1) || board.cells[x + 1][y + 1] == enemy_cell {
+            if *x == 0 || *y >= board.size - 1 || board.cells[x - 1][y + 1] == enemy_cell {
+                if *y >= board.size - 2 || board.cells[*x][y + 2] == enemy_cell {
+                    return true
+                }
+            }
+            if *y == 0 || *x >= board.size - 1 || board.cells[x + 1][y - 1] == enemy_cell {
+                if *x >= board.size - 2 || board.cells[x + 2][*y] == enemy_cell {
+                    return true
+                }
+            }
+        }
+        false
+    } else {
+        true
     }
-    false
+
 }
 
 impl MonteCarloAi {
     // return Winner and count
-    fn playout(&mut self, node: Rc<RefCell<Node>>, turn: &Turn, is_root: bool) -> Winner {
+    fn playout(&mut self, node: Rc<RefCell<Node>>, turn: &Turn, is_root: bool) -> (Winner, i32) {
+        println!("{:?}", node.borrow().board);
         let board = node.borrow().board.clone();
         let nodes_present = node.borrow().nodes.is_some();
         if !nodes_present {
             node.borrow_mut().set_next_nodes(turn);
         }
+        let mut n = 0;
         let winner = match node.borrow().max_node() {
             Some(node) => {
-                self.playout(node.clone(), &turn.get_next_turn(), false)
+                let t = self.playout(node.clone(), &turn.get_next_turn(), false);
+                n = t.1;
+                t.0
             }
             None => {
                 if node.borrow().simulate_num > 0 {
@@ -173,7 +176,7 @@ impl MonteCarloAi {
         } else {
             node.borrow_mut().lose(self.playout_num);
         }
-        winner
+        (winner, n + 1)
     }
 }
 
@@ -214,9 +217,12 @@ impl Player for MonteCarloAi {
             self.node.borrow_mut().set_next_nodes(turn);
             self.node.clone()
         };
-        for _ in 0..self.playout_count {
+        let mut c = 0;
+        loop {
             self.playout_num += 1;
-            self.playout(next_node.clone(), turn, true);
+            let (_, count) = self.playout(next_node.clone(), turn, true);
+            c += count;
+            if c > self.playout_count { break }
         }
         let point = if let Some(max_node) = next_node.borrow().max_node() {
             self.node = max_node.clone();

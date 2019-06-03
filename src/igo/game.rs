@@ -94,7 +94,7 @@ impl Game {
                     put_failed_count = 0;
                 } else {
                     put_failed_count += 1;
-                    if put_failed_count >= 3 {
+                    if put_failed_count >= 30 {
                         panic!("put failed many time");
                     }
                     continue;

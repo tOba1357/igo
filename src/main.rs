@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use igo::igo::players::monte_carlo_ai::MonteCarloAi;
 
 fn main() {
-    let mut black_player = Rc::new(RefCell::new(MonteCarloAi::new(1)));
+    let mut black_player = Rc::new(RefCell::new(MonteCarloAi::new(1000)));
     let mut white_player = Rc::new(RefCell::new(RandomAI::new()));
     let mut game = Game::new(black_player, white_player);
     let winner = game.start();

@@ -25,7 +25,7 @@ pub fn calc_puttables(board: &Board, turn: &Turn) -> Vec<(usize, usize)> {
     let mut puttables = Vec::with_capacity(size);
     for x in 0..size {
         for y in 0..size {
-            if board.is_put(&x, &y, &turn.to_cell()) {
+            if board.is_put(&x, &y, &turn.to_cell()).0 {
                 puttables.push((x, y));
             }
         }
