@@ -31,8 +31,16 @@ impl Turn {
             Turn::White => Cell::White,
         }
     }
+
+    pub fn to_winner(&self) -> Winner {
+        match self {
+            Turn::Black => Winner::Black,
+            Turn::White => Winner::White,
+        }
+    }
 }
 
+#[derive(PartialEq)]
 pub enum Winner {
     Black,
     White,
@@ -86,7 +94,7 @@ impl Game {
                     put_failed_count = 0;
                 } else {
                     put_failed_count += 1;
-                    if put_failed_count >= 3 {
+                    if put_failed_count >= 30 {
                         panic!("put failed many time");
                     }
                     continue;

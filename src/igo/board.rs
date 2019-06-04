@@ -8,7 +8,20 @@ use igo::game::Winner;
 pub struct Board {
     pub size: usize,
     pub cells: Vec<Vec<Cell>>,
-    pub points: Vec<(usize, usize, Cell)>,
+    pub points: Vec<Option<(usize, usize, Cell)>>,
+}
+
+impl PartialEq for Board {
+    fn eq(&self, other: &Self) -> bool {
+        for i in 0..self.size {
+            for j in 0..self.size {
+                if self.cells[i][j] != other.cells[i][j] {
+                    return false
+                }
+            }
+        }
+        true
+    }
 }
 
 #[derive(PartialEq, Clone)]
@@ -50,24 +63,11 @@ impl Board {
             Cell::White | Cell::Black => (),
             _ => return false
         }
-        let removeable_points = self.calc_removeable_points(x, y, &color);
-        let mut is_kou = false;
-        removeable_points.iter().for_each(|&(x, y)| {
-            if removeable_points.len() == 1 {
-                let point = &self.points[0];
-                if point.0 == x && point.1 == y {
-                    is_kou = true;
-                    return;
-                }
-            }
-            self.cells[x][y] = Cell::None;
-        });
-        if is_kou { return false; }
-        if removeable_points.len() == 0 && !self.is_put(x, y, &color) {
-            return false;
-        }
+        let (is_put, removeable_points) = self.is_put(x, y, &color);
+        if !is_put { return false; }
+        removeable_points.iter().for_each(|&(x, y)| { self.cells[x][y] = Cell::None; });
         self.cells[*x][*y] = color.clone();
-        self.points.push((*x, *y, color));
+        self.points.push(Some((*x, *y, color)));
         true
     }
 
@@ -113,23 +113,20 @@ impl Board {
         }).collect()
     }
 
-    pub fn is_put(&self, x: &usize, y: &usize, color: &Cell) -> bool {
-        if self.size <= *x || self.size <= *y {
-            return false;
-        }
-        match self.cells[*x][*y] {
-            Cell::None => (),
-            _ => return false
-        }
+    pub fn is_put(&self, x: &usize, y: &usize, color: &Cell) -> (bool, Vec<(usize, usize)>) {
+        if self.size <= *x || self.size <= *y { return (false, vec![]); }
+        if self.cells[*x][*y] != Cell::None { return (false, vec![]) }
+
         let remove_points = self.calc_removeable_points(x, y, color);
         // check kou
         if remove_points.len() == 1 {
             let point = remove_points[0];
             if point.0 == *x && point.1 == *y {
-                return false;
+                return (false, vec![]);
             }
         }
-        if remove_points.len() > 0 { return true; }
+        if remove_points.len() > 0 { return (true, remove_points); }
+
         let mut queue = Vec::with_capacity(self.size);
         let mut i = 0;
         let mut rem = vec![vec![false; self.size]; self.size];
@@ -143,7 +140,8 @@ impl Board {
             }
             rem[x][y] = true;
         });
-        if ok { return true; }
+        if ok { return (true, vec![]); }
+
         rem[*x][*y] = true;
         loop {
             if queue.len() <= i { break; }
@@ -162,13 +160,13 @@ impl Board {
                 }
                 rem[x][y] = true;
             });
-            if ok { return true; }
+            if ok { return (true, vec![]); }
             i += 1;
         }
-        false
+        (false, vec![])
     }
 
-    pub fn pass(&mut self) {}
+    pub fn pass(&mut self) { self.points.push(None) }
 
     #[cfg(test)]
     pub fn set_from_str(&mut self, s: String) {
@@ -221,7 +219,10 @@ impl Board {
                     match current_cell {
                         Cell::Black => black_count += 1,
                         Cell::White => white_count += 1,
-                        _ => { panic!("") }
+                        _ => {
+                            println!("{:?}", self);
+                            panic!("")
+                        }
                     }
                     queue.push((x, y));
                 } else {
@@ -230,7 +231,6 @@ impl Board {
             });
             i += 1;
         }
-        println!("{}, {}", black_count, white_count);
         if black_count == white_count {
             Winner::None
         } else if black_count > white_count {
